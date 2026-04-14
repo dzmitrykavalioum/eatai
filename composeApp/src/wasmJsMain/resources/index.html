@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EatAI</title>
+
+    <!-- MapLibre GL JS -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { width: 100vw; height: 100vh; overflow: hidden; }
+
+        /* MapLibre map sits underneath the Compose canvas */
+        #maplibre-container {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+        }
+
+        /* Compose canvas overlays the map */
+        #ComposeTarget {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background: transparent;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="maplibre-container"></div>
+    <canvas id="ComposeTarget"></canvas>
+
+    <script>
+        // Global map instance — initialized from Kotlin/Wasm via JS interop
+        let eatAiMap = null;
+
+        window.initEatAiMap = function(lat, lon, markersJson) {
+            const markers = JSON.parse(markersJson || "[]");
+
+            if (!eatAiMap) {
+                eatAiMap = new maplibregl.Map({
+                    container: 'maplibre-container',
+                    style: 'https://tiles.openfreemap.org/styles/liberty',
+                    center: [lon, lat],
+                    zoom: 14,
+                });
+                eatAiMap.addControl(new maplibregl.NavigationControl());
+            } else {
+                eatAiMap.setCenter([lon, lat]);
+            }
+
+            // TODO: add venue markers with color coding from Kotlin state
+        };
+    </script>
+
+    <!-- Compose Multiplatform WASM runtime -->
+    <script src="skiko.js"></script>
+    <script src="composeApp.js"></script>
+</body>
+</html>
