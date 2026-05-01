@@ -25,7 +25,6 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
-        // MapLibre Android SDK is on Maven Central
     }
 }
 

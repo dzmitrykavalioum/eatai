@@ -5,16 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EatAI</title>
 
-    <!-- MapLibre GL JS -->
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
-    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { width: 100vw; height: 100vh; overflow: hidden; }
 
-        /* MapLibre map sits underneath the Compose canvas */
-        #maplibre-container {
+        /* Google Map sits underneath the Compose canvas */
+        #google-map-container {
             position: absolute;
             inset: 0;
             z-index: 0;
@@ -31,31 +27,81 @@
     </style>
 </head>
 <body>
-    <div id="maplibre-container"></div>
+    <div id="google-map-container"></div>
     <canvas id="ComposeTarget"></canvas>
 
     <script>
         // Global map instance — initialized from Kotlin/Wasm via JS interop
         let eatAiMap = null;
+        let eatAiMarkers = [];
 
-        window.initEatAiMap = function(lat, lon, markersJson) {
+        // Called by Google Maps JS API once the script has loaded.
+        window.__eatAiMapsReady = false;
+        window.__initGoogleMaps = function () {
+            window.__eatAiMapsReady = true;
+        };
+
+        window.initEatAiMap = function (lat, lon, markersJson) {
+            if (!window.__eatAiMapsReady || !window.google || !google.maps) {
+                // Maps script not ready yet — retry shortly.
+                setTimeout(() => window.initEatAiMap(lat, lon, markersJson), 200);
+                return;
+            }
+
+            const center = { lat: lat, lng: lon };
             const markers = JSON.parse(markersJson || "[]");
 
             if (!eatAiMap) {
-                eatAiMap = new maplibregl.Map({
-                    container: 'maplibre-container',
-                    style: 'https://tiles.openfreemap.org/styles/liberty',
-                    center: [lon, lat],
-                    zoom: 14,
-                });
-                eatAiMap.addControl(new maplibregl.NavigationControl());
+                eatAiMap = new google.maps.Map(
+                    document.getElementById('google-map-container'),
+                    {
+                        center: center,
+                        zoom: 15,
+                        disableDefaultUI: false,
+                        mapId: 'EATAI_MAP',
+                    }
+                );
             } else {
-                eatAiMap.setCenter([lon, lat]);
+                eatAiMap.setCenter(center);
             }
 
-            // TODO: add venue markers with color coding from Kotlin state
+            // Clear previous markers, then re-add.
+            eatAiMarkers.forEach(m => m.setMap(null));
+            eatAiMarkers = [];
+
+            markers.forEach(m => {
+                const marker = new google.maps.Marker({
+                    position: { lat: m.lat, lng: m.lon },
+                    map: eatAiMap,
+                    title: m.name,
+                    icon: m.iconUrl
+                        ? { url: m.iconUrl }
+                        : {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 8,
+                            fillColor: m.color || '#4CAF50',
+                            fillOpacity: 1,
+                            strokeColor: '#ffffff',
+                            strokeWeight: 2,
+                        },
+                });
+                if (m.id) {
+                    marker.addListener('click', () => {
+                        if (typeof window.onVenueTap === 'function') {
+                            window.onVenueTap(m.id);
+                        }
+                    });
+                }
+                eatAiMarkers.push(marker);
+            });
         };
     </script>
+
+    <!-- Google Maps JS API. Key is restricted to allowed HTTP referrers in Cloud Console. -->
+    <script
+        async
+        defer
+        src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&callback=__initGoogleMaps&v=weekly"></script>
 
     <!-- Compose Multiplatform WASM runtime -->
     <script src="skiko.js"></script>

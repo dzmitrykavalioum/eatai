@@ -8,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.eatai.shared.domain.model.Location
+import com.eatai.shared.domain.model.MarkerState
 import com.eatai.shared.domain.model.Venue
 
 @Composable
@@ -20,12 +21,12 @@ actual fun MapView(
     LaunchedEffect(userLocation, venues) {
         val lat = userLocation?.latitude ?: 52.52
         val lon = userLocation?.longitude ?: 13.405
-        initMapLibreMap(lat, lon, venues, onVenueTap)
+        val markersJson = venues.toMarkersJson()
+        initGoogleMap(lat, lon, markersJson)
     }
 
-    // The MapLibre GL JS map renders in a <div id="maplibre-container"> defined in index.html.
-    // This composable just ensures the map is initialized/updated when state changes.
-    // The div sits behind the Compose canvas; use CSS z-index to layer correctly.
+    // The Google Map renders in <div id="google-map-container"> defined in index.html,
+    // sitting behind the Compose canvas (CSS z-index in index.html).
     Box(modifier = modifier.fillMaxSize()) {
         if (venues.isEmpty()) {
             Text("Loading map…", modifier = Modifier.align(Alignment.Center))
@@ -33,20 +34,30 @@ actual fun MapView(
     }
 }
 
-/**
- * Calls MapLibre GL JS via Kotlin/Wasm JS interop to initialize or update the map.
- * The map is rendered in a <div id="maplibre-container"> outside the Compose canvas.
- *
- * TODO: implement full JS interop when the Web target is being tested in a browser.
- * See index.html and the MapLibre GL JS documentation for the required JS bindings.
- */
-private fun initMapLibreMap(
-    lat: Double,
-    lon: Double,
-    venues: List<Venue>,
-    onVenueTap: (Venue) -> Unit,
-) {
-    // JS interop entry point — implement using @JsExport / external declarations
-    // Example:
-    //   js("window.initEatAiMap(lat, lon, markersJson)")
+/** Calls into the JS bridge in index.html to (re)initialize the Google Map. */
+private fun initGoogleMap(lat: Double, lon: Double, markersJson: String) {
+    initEatAiMapJs(lat, lon, markersJson)
 }
+
+@JsFun("(lat, lon, markersJson) => window.initEatAiMap(lat, lon, markersJson)")
+private external fun initEatAiMapJs(lat: Double, lon: Double, markersJson: String)
+
+private fun List<Venue>.toMarkersJson(): String =
+    joinToString(prefix = "[", postfix = "]") { it.toMarkerJson() }
+
+private fun Venue.toMarkerJson(): String {
+    val color = markerState.toColorHex()
+    return """{"id":"${id.jsEscape()}","lat":${location.latitude},"lon":${location.longitude},""" +
+        """"name":"${name.jsEscape()}","color":"$color"}"""
+}
+
+private fun MarkerState.toColorHex(): String = when (this) {
+    MarkerState.OPEN         -> "#4CAF50"
+    MarkerState.CLOSING_SOON -> "#FFEB3B"
+    MarkerState.CLOSING      -> "#FF9800"
+    MarkerState.LAST_CALL    -> "#F44336"
+    MarkerState.CLOSED       -> "#9E9E9E"
+}
+
+private fun String.jsEscape(): String =
+    replace("\\", "\\\\").replace("\"", "\\\"")

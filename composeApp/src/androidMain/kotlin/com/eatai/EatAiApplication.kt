@@ -7,7 +7,6 @@ import com.eatai.shared.di.sharedModule
 import com.eatai.shared.platform.initSharedAndroid
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
-import org.maplibre.android.MapLibre
 
 class EatAiApplication : Application() {
 
@@ -16,9 +15,6 @@ class EatAiApplication : Application() {
 
         // Provide application context to shared-module platform implementations
         initSharedAndroid(this)
-
-        // Initialize MapLibre (required before any MapView is created)
-        MapLibre.getInstance(this)
 
         // Start Koin DI
         startKoin {
