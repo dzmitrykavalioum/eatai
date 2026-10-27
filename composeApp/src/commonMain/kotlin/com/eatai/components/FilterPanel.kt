@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,15 +31,6 @@ fun FilterPanel(
         modifier = modifier.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // Free-text search
-        TextField(
-            value = filter.searchQuery,
-            onValueChange = { onFilterChanged(filter.copy(searchQuery = it)) },
-            placeholder = { Text("Search cafes, cuisine…") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-
         // Food categories
         Text("Category")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

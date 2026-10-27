@@ -33,6 +33,11 @@ class MapViewModel(
         _uiState.update { it.copy(filter = filter) }
     }
 
+    fun onApplyFilter(filter: VenueFilter) {
+        onFilterChanged(filter)
+        onSearch()
+    }
+
     fun onSearch() {
         val location = _uiState.value.userLocation ?: return
         _uiState.update { it.copy(isLoading = true, error = null) }
