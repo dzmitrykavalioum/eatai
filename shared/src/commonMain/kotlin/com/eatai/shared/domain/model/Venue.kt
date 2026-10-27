@@ -7,8 +7,8 @@ data class Venue(
     val address: String,
     val phone: String?,
     val website: String?,
-    val openingHours: String?,   // raw OSM opening_hours tag value
+    val openingHours: String?,   // today's hours, e.g. "Monday: 8:00 AM – 10:00 PM"
     val cuisines: List<String>,
-    val rating: Float?,          // placeholder; populated via Google Places (future)
+    val rating: Float?,          // Google Places rating
     val markerState: MarkerState,
 )

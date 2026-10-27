@@ -1,6 +1,6 @@
 package com.eatai.shared.di
 
-import com.eatai.shared.data.api.OverpassApiClient
+import com.eatai.shared.data.api.PlacesApiClient
 import com.eatai.shared.data.preferences.AppPreferences
 import com.eatai.shared.data.repository.FavoritesRepository
 import com.eatai.shared.data.repository.VenueRepository
@@ -21,7 +21,8 @@ val sharedModule = module {
         }
     }
 
-    single { OverpassApiClient(get()) }
+    // PlacesConfig (API key) is provided by each platform entry point.
+    single { PlacesApiClient(get(), get()) }
     single { VenueRepository(get()) }
     single { FavoritesRepository(get()) }
     single { AppPreferences(get()) }

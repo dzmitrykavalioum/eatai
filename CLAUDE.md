@@ -18,15 +18,15 @@ See [SPEC.md](SPEC.md) for full product requirements.
 |----------------------|-----------------------------------------------------|
 | Language             | Kotlin (KMP)                                        |
 | Shared UI            | Compose Multiplatform                               |
-| Android maps         | MapLibre Android SDK                                |
-| Web maps             | MapLibre GL JS (via Kotlin/JS interop)              |
+| Android maps         | Google Maps SDK for Android (Maps Compose)          |
+| Web maps             | Google Maps JS API (loaded via `<script>` in index.html) |
 | Networking           | Ktor Client (CIO engine)                            |
 | Serialization        | Kotlinx Serialization (JSON)                        |
 | Dependency injection | Koin (KMP-compatible)                               |
 | Local DB             | SQLDelight (KMP)                                    |
 | Preferences          | multiplatform-settings (SharedPrefs / NSUserDefaults / localStorage) |
 | Async                | Coroutines + Flow                                   |
-| Venue data           | OpenStreetMap Overpass API (free, no API key)       |
+| Venue data           | Google Places API (New) — Nearby Search, same API key as Google Maps |
 | Geocoding            | Nominatim API (OSM, free)                           |
 | Build system         | Gradle with Kotlin DSL                              |
 
@@ -36,9 +36,7 @@ See [SPEC.md](SPEC.md) for full product requirements.
 |---------------------------|---------------------------------------------------|
 | Backend server            | Ktor Server (module: `/backend`)                  |
 | Auth                      | JWT + SSO (Google Sign-In, Apple Sign-In)         |
-| Maps (post-MVP)           | Google Maps SDK (Android / iOS / JS)              |
-| Venue data (post-MVP)     | Google Places API                                 |
-| Ratings                   | Google Places API                                 |
+| Maps (iOS)                | Google Maps SDK for iOS                           |
 | iOS                       | Compose Multiplatform or SwiftUI                  |
 | CI/CD                     | GitHub Actions (`.github/workflows/`)             |
 | Push notifications        | FCM (Android), APNs (iOS)                         |
@@ -56,14 +54,14 @@ eatai/
 │   │   ├── viewmodel/           # ViewModels (MapViewModel, SearchViewModel, etc.)
 │   │   └── navigation/          # NavGraph
 │   ├── androidMain/
-│   │   └── map/                 # MapLibre Android SDK integration (expect/actual)
+│   │   └── map/                 # Google Maps SDK integration (expect/actual)
 │   └── wasmJsMain/
-│       └── map/                 # MapLibre GL JS interop (expect/actual)
+│       └── map/                 # Google Maps JS API interop (expect/actual)
 │
 ├── shared/                      # Pure KMP — business logic, no UI
 │   ├── commonMain/
 │   │   ├── data/
-│   │   │   ├── api/             # Overpass API client, Nominatim client
+│   │   │   ├── api/             # Google Places API client, Nominatim client
 │   │   │   ├── db/              # SQLDelight schema and queries
 │   │   │   ├── dto/             # API response models
 │   │   │   └── repository/      # VenueRepository, FavoritesRepository
@@ -106,42 +104,54 @@ UI (Composable)
 
 ## Maps Strategy
 
-Map integration is platform-specific by necessity — no single KMP-native map library covers Android + Web + iOS today. We use the **MapLibre ecosystem** for consistency (same rendering engine and tile system across platforms):
+Map integration is platform-specific by necessity — no single KMP-native map library covers Android + Web + iOS today. We use the **Google Maps** SDKs on every platform for consistency (same rendering engine and tile system, same API key as Places):
 
 | Platform | SDK                  |
 |----------|----------------------|
-| Android  | MapLibre Android SDK |
-| Web      | MapLibre GL JS       |
-| iOS      | MapLibre iOS SDK (future) |
+| Android  | Google Maps SDK for Android |
+| Web      | Google Maps JS API   |
+| iOS      | Google Maps SDK for iOS (future) |
 
 Each platform provides its own `actual MapView` composable, with the shared `expect MapView` interface in `composeApp/commonMain`. All marker state and interaction logic is shared.
 
-> **Migration note:** When a Google API key is available, replace MapLibre with Google Maps SDK (Android), Maps JS API (Web), and Google Maps SDK (iOS). Data source switches from Overpass API to Google Places API at the same time.
-
 ---
 
-## Overpass API — Query Template
+## Google Places API (New) — Nearby Search
 
-Used to fetch nearby venues in MVP:
+Used to fetch nearby venues:
 
 ```
-[out:json];
-(
-  node["amenity"~"cafe|restaurant|bar|bakery"](around:{radius_meters},{lat},{lon});
-  way["amenity"~"cafe|restaurant|bar|bakery"](around:{radius_meters},{lat},{lon});
-);
-out center tags;
+POST https://places.googleapis.com/v1/places:searchNearby
+X-Goog-Api-Key: {MAPS_API_KEY}
+X-Goog-FieldMask: places.id,places.displayName,places.location,places.formattedAddress,places.types,places.rating,places.currentOpeningHours,places.nationalPhoneNumber,places.websiteUri
+Content-Type: application/json
+
+{
+  "includedTypes": ["cafe", "restaurant", "bar", "bakery", "fast_food_restaurant"],
+  "maxResultCount": 20,
+  "locationRestriction": {
+    "circle": { "center": { "latitude": {lat}, "longitude": {lon} }, "radius": {radius_meters} }
+  }
+}
 ```
 
-Endpoint: `https://overpass-api.de/api/interpreter`
-Method: POST, body = query string above.
-No API key required. Rate limit: be conservative, cache results.
+- **API key:** the same key as Google Maps (`MAPS_API_KEY` in `local.properties`, gitignored). *Places API (New)* must be enabled for it in Google Cloud Console, and the key's application restrictions must allow the Android package(s) and SHA-1 fingerprints. Never hardcode or commit the key.
+- **Field mask is required** and drives billing — request only the fields the UI uses. `rating` and `currentOpeningHours` are billed at a higher SKU than basic fields.
+- **Max 20 results per request** (no pagination on Nearby Search). Radius max is 50 000 m.
+- Endpoint URL, field mask and cache limits live in `shared/commonMain/data/api/Constants.kt`.
+- **Key delivery:** `shared` gets the key through `PlacesConfig`, provided by each platform entry point — Android from `BuildConfig.MAPS_API_KEY` (also sends `X-Android-Package` / `X-Android-Cert`, which an Android-restricted key requires for REST calls), web from `window.__EATAI_MAPS_KEY` injected into `index.html`.
+
+### Request budget (every call is billed)
+
+- **Cache** (`NearbyPlacesCache`, in `VenueRepository`): reused for the same radius and a search centre within 100 m of a cached one; 15 min TTL, 20 entries, LRU eviction. It stores raw results, so marker colour and today's hours are recomputed on every read. The cache key is the area only — filters (search text, categories) are applied client-side and never trigger a refetch.
+- **No retries, no loops.** `PlacesApiClient` never retries; errors go to the UI. A search starts only from a user action (Search button, keyboard Search, Apply on Filters) or once after the first location fix. Nothing may trigger a search from a state change, camera move or `LaunchedEffect`.
+- `MapViewModel` keeps one search job: a new search cancels the previous one. Concurrent repository calls are serialised, so overlapping searches for one area share a single request.
 
 ---
 
 ## Marker Color Logic
 
-Computed from OSM `opening_hours` tag after parsing:
+Computed from the Places `currentOpeningHours` field (`openNow`, `periods`, `nextCloseTime`):
 
 | Condition                          | MarkerState | Color  |
 |------------------------------------|-------------|--------|
@@ -187,8 +197,7 @@ These are NOT MVP tasks. Noted here to avoid conflicting architectural decisions
 
 - **Backend (`/backend` module):** Ktor server. Routes: POST /auth/register, POST /auth/login, POST /auth/logout, DELETE /auth/account. Will also sync favorites and preferences per user.
 - **SSO:** Google Sign-In (Android/Web), Apple Sign-In (iOS/Web). Implement after backend auth is ready.
-- **Google Maps migration:** Swap MapLibre for Google Maps SDK. Requires Google API key. Also enables Google Places for richer data and real ratings.
-- **iOS:** Add `iosMain` targets to both `shared` and `composeApp`. Add MapLibre iOS SDK actual implementation.
+- **iOS:** Add `iosMain` targets to both `shared` and `composeApp`. Add Google Maps SDK for iOS actual implementation.
 - **CI/CD:** GitHub Actions. Jobs: `build-android`, `build-web`, `test-shared`, `lint`.
 - **Dark mode:** Add `ThemeViewModel`, persist choice in `multiplatform-settings`. Use MaterialTheme dynamic colors.
 - **Push notifications:** FCM for Android, APNs for iOS. Backend sends triggers (e.g. "venue closing soon" for saved favorites).

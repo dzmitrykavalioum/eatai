@@ -32,10 +32,14 @@ kotlin {
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.kotlinx.datetime)
             implementation(libs.koin.core)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
             implementation(libs.multiplatform.settings)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.android)

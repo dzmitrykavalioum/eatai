@@ -106,7 +106,12 @@ android {
 
         // Surfaces MAPS_API_KEY into AndroidManifest.xml (${MAPS_API_KEY}).
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+
+        // Same key, read at runtime by the Places API client (see EatAiApplication).
+        buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
     }
+
+    buildFeatures { buildConfig = true }
 
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }

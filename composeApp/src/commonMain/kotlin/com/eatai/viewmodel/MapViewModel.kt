@@ -9,6 +9,7 @@ import com.eatai.shared.domain.model.Venue
 import com.eatai.shared.domain.model.VenueFilter
 import com.eatai.shared.domain.usecase.GetNearbyVenuesUseCase
 import com.eatai.shared.platform.LocationProvider
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,6 +26,9 @@ class MapViewModel(
     private val _uiState = MutableStateFlow(MapUiState())
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
 
+    // At most one search runs at a time; a new one supersedes the previous.
+    private var searchJob: Job? = null
+
     init {
         loadUserLocation()
     }
@@ -40,8 +44,9 @@ class MapViewModel(
 
     fun onSearch() {
         val location = _uiState.value.userLocation ?: return
+        searchJob?.cancel()
         _uiState.update { it.copy(isLoading = true, error = null) }
-        viewModelScope.launch {
+        searchJob = viewModelScope.launch {
             getNearbyVenues(location, _uiState.value.filter)
                 .onSuccess { venues ->
                     _uiState.update { it.copy(venues = venues, isLoading = false) }
