@@ -36,6 +36,7 @@ class PlacesApiClient(
         val request = SearchNearbyRequest(
             includedTypes = Constants.PLACES_INCLUDED_TYPES,
             maxResultCount = Constants.PLACES_MAX_RESULT_COUNT,
+            rankPreference = Constants.PLACES_RANK_PREFERENCE,
             locationRestriction = LocationRestriction(
                 Circle(
                     center = PlaceLocation(lat, lon),

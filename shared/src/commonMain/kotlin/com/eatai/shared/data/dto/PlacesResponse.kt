@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 data class SearchNearbyRequest(
     val includedTypes: List<String>,
     val maxResultCount: Int,
+    val rankPreference: String,
     val locationRestriction: LocationRestriction,
 )
 

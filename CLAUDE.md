@@ -129,6 +129,7 @@ Content-Type: application/json
 {
   "includedTypes": ["cafe", "restaurant", "bar", "bakery", "fast_food_restaurant"],
   "maxResultCount": 20,
+  "rankPreference": "DISTANCE",
   "locationRestriction": {
     "circle": { "center": { "latitude": {lat}, "longitude": {lon} }, "radius": {radius_meters} }
   }
@@ -138,6 +139,8 @@ Content-Type: application/json
 - **API key:** the same key as Google Maps (`MAPS_API_KEY` in `local.properties`, gitignored). *Places API (New)* must be enabled for it in Google Cloud Console, and the key's application restrictions must allow the Android package(s) and SHA-1 fingerprints. Never hardcode or commit the key.
 - **Field mask is required** and drives billing — request only the fields the UI uses. `rating` and `currentOpeningHours` are billed at a higher SKU than basic fields.
 - **Max 20 results per request** (no pagination on Nearby Search). Radius max is 50 000 m.
+- **`rankPreference: DISTANCE`** returns the 20 *nearest* venues. The default (POPULARITY) fills the 20 slots with well-known places across the whole radius and drops small venues next door. In dense areas the 20 nearest fit well inside the radius, so the map shows a small cluster around the user.
+- The request is intentionally broad (`includedTypes` is not narrowed by the category chips): refining results is done afterwards on the client, later by an LLM. `includedTypes` matches any of a place's types, so it also returns some non-food places (e.g. petrol stations that sell food).
 - Endpoint URL, field mask and cache limits live in `shared/commonMain/data/api/Constants.kt`.
 - **Key delivery:** `shared` gets the key through `PlacesConfig`, provided by each platform entry point — Android from `BuildConfig.MAPS_API_KEY` (also sends `X-Android-Package` / `X-Android-Cert`, which an Android-restricted key requires for REST calls), web from `window.__EATAI_MAPS_KEY` injected into `index.html`.
 

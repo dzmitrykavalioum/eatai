@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
@@ -27,6 +28,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -35,6 +37,9 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,6 +57,8 @@ fun MapScreen(
     onOpenFilters: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
+    // Incremented by the "my location" button; the map moves the camera back to the user on each change.
+    var recenterTrigger by remember { mutableIntStateOf(0) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (state.isListMode) {
@@ -73,6 +80,7 @@ fun MapScreen(
                 venues = state.venues,
                 userLocation = state.userLocation,
                 onVenueTap = viewModel::onVenueTap,
+                recenterTrigger = recenterTrigger,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -126,6 +134,17 @@ fun MapScreen(
             }
         }
 
+        if (!state.isListMode && state.userLocation != null) {
+            SmallFloatingActionButton(
+                onClick = { recenterTrigger++ },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 72.dp),
+            ) {
+                Icon(Icons.Filled.MyLocation, contentDescription = "My location")
+            }
+        }
+
         Button(
             onClick = viewModel::onSearch,
             modifier = Modifier
@@ -144,7 +163,8 @@ fun MapScreen(
             Snackbar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(start = 8.dp, end = 8.dp, bottom = 72.dp),
+                    // Above the Search button and the my-location button.
+                    .padding(start = 8.dp, end = 8.dp, bottom = 128.dp),
             ) {
                 Text(error)
             }

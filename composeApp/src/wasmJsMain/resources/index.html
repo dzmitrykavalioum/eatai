@@ -34,6 +34,41 @@
         // Global map instance — initialized from Kotlin/Wasm via JS interop
         let eatAiMap = null;
         let eatAiMarkers = [];
+        let eatAiUserLocation = null;
+        let eatAiUserMarker = null;
+
+        // Draws (or moves) the blue "you are here" dot once both the map and the location exist.
+        function renderEatAiUserMarker() {
+            if (!eatAiMap || !eatAiUserLocation) return;
+            if (eatAiUserMarker) {
+                eatAiUserMarker.setPosition(eatAiUserLocation);
+                return;
+            }
+            eatAiUserMarker = new google.maps.Marker({
+                position: eatAiUserLocation,
+                map: eatAiMap,
+                zIndex: 1000,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 9,
+                    fillColor: '#1A73E8',
+                    fillOpacity: 1,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 3,
+                },
+            });
+        }
+
+        window.setEatAiUserLocation = function (lat, lon) {
+            eatAiUserLocation = { lat: lat, lng: lon };
+            renderEatAiUserMarker();  // no-op until the map exists; initEatAiMap draws it then
+        };
+
+        window.recenterEatAiMap = function () {
+            if (!eatAiMap || !eatAiUserLocation) return;
+            eatAiMap.panTo(eatAiUserLocation);
+            eatAiMap.setZoom(15);
+        };
 
         // Called by Google Maps JS API once the script has loaded.
         window.__eatAiMapsReady = false;
@@ -64,6 +99,8 @@
             } else {
                 eatAiMap.setCenter(center);
             }
+
+            renderEatAiUserMarker();
 
             // Clear previous markers, then re-add.
             eatAiMarkers.forEach(m => m.setMap(null));

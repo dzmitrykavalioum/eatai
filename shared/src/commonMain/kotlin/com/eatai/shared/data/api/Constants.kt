@@ -7,6 +7,10 @@ internal object Constants {
     // Places API (New) "Table A" types. Nearby Search returns at most MAX_RESULT_COUNT places.
     val PLACES_INCLUDED_TYPES = listOf("cafe", "restaurant", "bar", "bakery", "fast_food_restaurant")
     const val PLACES_MAX_RESULT_COUNT = 20
+
+    // Nearest first. The default (POPULARITY) fills the 20 slots with well-known places spread over
+    // the whole radius, so a small venue next door can be missing from the results.
+    const val PLACES_RANK_PREFERENCE = "DISTANCE"
     const val PLACES_MAX_RADIUS_METERS = 50_000
 
     // The field mask drives billing: rating / currentOpeningHours / phone / website are the higher SKU.

@@ -16,8 +16,17 @@ actual fun MapView(
     venues: List<Venue>,
     userLocation: Location?,
     onVenueTap: (Venue) -> Unit,
+    recenterTrigger: Int,
     modifier: Modifier,
 ) {
+    LaunchedEffect(userLocation) {
+        userLocation?.let { setUserLocationJs(it.latitude, it.longitude) }
+    }
+
+    LaunchedEffect(recenterTrigger) {
+        if (recenterTrigger > 0) recenterJs()
+    }
+
     LaunchedEffect(userLocation, venues) {
         val lat = userLocation?.latitude ?: 52.52
         val lon = userLocation?.longitude ?: 13.405
@@ -38,6 +47,12 @@ actual fun MapView(
 private fun initGoogleMap(lat: Double, lon: Double, markersJson: String) {
     initEatAiMapJs(lat, lon, markersJson)
 }
+
+@JsFun("(lat, lon) => window.setEatAiUserLocation(lat, lon)")
+private external fun setUserLocationJs(lat: Double, lon: Double)
+
+@JsFun("() => window.recenterEatAiMap()")
+private external fun recenterJs()
 
 @JsFun("(lat, lon, markersJson) => window.initEatAiMap(lat, lon, markersJson)")
 private external fun initEatAiMapJs(lat: Double, lon: Double, markersJson: String)
